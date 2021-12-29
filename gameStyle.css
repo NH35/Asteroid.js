@@ -1,0 +1,23 @@
+body {
+    margin: 0;
+    overflow-y: hidden;
+    overflow-x: hidden;
+    background-color: black;
+}
+
+canvas {
+    border: 0px solid blue;
+}
+h1 {
+    color: white;
+    position: absolute;
+
+}
+
+#gameOver {
+    color: white;
+    position: absolute;
+    font-size: 80px;
+    top : 40%;
+    left: 30%;
+}
