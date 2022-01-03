@@ -3,39 +3,60 @@ canvas.width = window.innerWidth; //redefinit la tailel de la canvas
 canvas.height = window.innerHeight;
 const c = canvas.getContext("2d");
 
-const center = { x: canvas.width / 2, y: canvas.height / 2, z: 0 };
-var timeStep = 1; //si on veux accelerer la simulation
-var score = 0;
-let isScoreUpdatable = true;
+const CENTER = { x: canvas.width / 2, y: canvas.height / 2, z: 0 };
+var timeStep = 1; // if you want to speed up the simulation
+var score = 0; // modify your score with this varaible
+let isScoreUpdatable = true; // turn false when the game is over
+
+
+const MARGIN_PIXEL_OF_CANVAS = 100;
+const NUMBER_OF_EDGE_ON_A_SCREEN = 4;
+const SPACESHIP_ROTATION_ANGLE_FACTOR = 0.1;
+const DELAY_BETWEEN_FRAME_UPDATE = 0;
+const OUT_OF_BOUND_MAX = 50;
+const ASTEROID_STARTING_MARGIN = 50;
+const ASTEROID_ANGLE_OF_CHILD_AFTER_SPLIT = 3;
+const ASTEROID_DEFAULT_RADIUS = 20;
+const ASTEROID_DEFAULT_MAGNITUDE_FACTOR = 5;
+const LASER_LENGTH = 30;
+const LASER_DEFAULT_MAGNITUDE = 10;
+const PLAYER_OOB_TELEPORT_BORDER_MARGIN_WHEN_OUT = 0;
+const PLAYER_OOB_TELEPORT_BORDER_MARGIN_WHEN_IN = 0;
+const PLAYER_TRIANGLE_EDGE_ANGLE = 0.80;
+const PLAYER_DEFAULT_RADIUS = 20;
+const PLAYER_DEFAULT_DIRECTION_TIME_PI = 1.5;
+const PLAYER_DEFAULT_MAGNITUDE = 0;
+const DEFAULT_COLOR = "white";
+const NUMBER_OF_ASTEROID_AT_THE_SAME_TIME = 30;
 
 class Player {
     constructor() {
-        this.pos = center;
-        this.color = "white";
-        this.radius = 20;
+        this.pos = CENTER;
+        this.color = DEFAULT_COLOR;
+        this.radius = PLAYER_DEFAULT_RADIUS;
         
-        this.direction = 1.5 * Math.PI; //timePIzed
-        this.magnitude = 0;
+        this.direction = PLAYER_DEFAULT_DIRECTION_TIME_PI * Math.PI; //timePIzed
+        this.magnitude = PLAYER_DEFAULT_MAGNITUDE;
         this.vec = { x: 0, y: 0 };
         this.acceleration = { x: 0, y: 0 };
     }
     
     draw() {
-        this.cornerCoordonates = [];
-        //this.dimension.firstAngle = this.direction;
+        let cornerCoordonates = [];
         
-        this.cornerCoordonates[0] = { x: this.pos.x + this.radius * Math.cos(this.direction + 0.00 * Math.PI), y: this.pos.y + this.radius * Math.sin(this.direction + 0.00 * Math.PI) };
-        this.cornerCoordonates[1] = { x: this.pos.x + this.radius * Math.cos(this.direction + 0.80 * Math.PI), y: this.pos.y + this.radius * Math.sin(this.direction + 0.80 * Math.PI) };
-        this.cornerCoordonates[2] = { x: this.pos.x + this.radius * Math.cos(this.direction - 0.80 * Math.PI), y: this.pos.y + this.radius * Math.sin(this.direction - 0.80 * Math.PI) };
+        cornerCoordonates[0] = { x: this.pos.x + this.radius * Math.cos(this.direction + 0.00 * Math.PI), y: this.pos.y + this.radius * Math.sin(this.direction + 0.00 * Math.PI) };
+        cornerCoordonates[1] = { x: this.pos.x + this.radius * Math.cos(this.direction + PLAYER_TRIANGLE_EDGE_ANGLE * Math.PI), y: this.pos.y + this.radius * Math.sin(this.direction + PLAYER_TRIANGLE_EDGE_ANGLE * Math.PI) };
+        cornerCoordonates[2] = { x: this.pos.x + this.radius * Math.cos(this.direction - PLAYER_TRIANGLE_EDGE_ANGLE * Math.PI), y: this.pos.y + this.radius * Math.sin(this.direction - PLAYER_TRIANGLE_EDGE_ANGLE * Math.PI) };
         
         c.beginPath();
         c.strokeStyle  = this.color;
-        c.moveTo(this.cornerCoordonates[0].x, this.cornerCoordonates[0].y);
-        c.lineTo(this.cornerCoordonates[1].x, this.cornerCoordonates[1].y);
-        c.lineTo(this.cornerCoordonates[2].x, this.cornerCoordonates[2].y);
-        c.lineTo(this.cornerCoordonates[0].x, this.cornerCoordonates[0].y);
+        c.moveTo(cornerCoordonates[0].x, cornerCoordonates[0].y);
+        c.lineTo(cornerCoordonates[1].x, cornerCoordonates[1].y);
+        c.lineTo(cornerCoordonates[2].x, cornerCoordonates[2].y);
+        c.lineTo(cornerCoordonates[0].x, cornerCoordonates[0].y);
         c.stroke();
     }
+    
     
     convertPolarToXY() {
         this.vec.x = Math.cos(this.direction) * this.magnitude;
@@ -43,115 +64,118 @@ class Player {
         
     }
     update(){
-        this.vec.x += this.acceleration.x * timeStep; //multiplication par le pas de temps désiré
-        
-        //probablement parce que le triangle (conceptuel) utilisé pour calculer acos est inversé
-        
+        this.vec.x += this.acceleration.x * timeStep; //multiply by the timeStep to speed up or slow the simulation.
         this.vec.y += this.acceleration.y * timeStep;
-        
     }
     
-    updatePos() { //modifie la position sur le canvas
-        //this.convertPolarToXY();
-        
-        this.pos.x = this.pos.x + this.vec.x; //position initial + le décalage indiqué en x et en y
-        this.pos.y = this.pos.y + this.vec.y;
+    updatePos() { //modify the position on the canvas
+        this.pos.x = this.pos.x + this.vec.x; // initial position + modidificatino in x and y
+        this.pos.y = this.pos.y + this.vec.y; 
     }
     
-    teleporte() {
-        if (this.pos.x > canvas.width) {
-            this.pos.x = 0;
-        } else if (this.pos.x < 0) {
-            this.pos.x = canvas.width;
+    teleporte() { // when the player hit a edge of the screen, it teleporte to the other edge.
+        if (this.pos.x > canvas.width + PLAYER_OOB_TELEPORT_BORDER_MARGIN_WHEN_OUT) { //the constant OUT indicate if the player is teleported after (+) passing the edge or before (-)
+            this.pos.x = 0 - PLAYER_OOB_TELEPORT_BORDER_MARGIN_WHEN_IN; //the constant IN indicate where the player will be teleported (outside or inside the canvas)
+        } else if (this.pos.x < 0 - PLAYER_OOB_TELEPORT_BORDER_MARGIN_WHEN_OUT) {
+            this.pos.x = canvas.width + PLAYER_OOB_TELEPORT_BORDER_MARGIN_WHEN_IN;
         }
-        if (this.pos.y > canvas.height) {
-            this.pos.y = 0;
-        } else if (this.pos.y < 0) {
-            this.pos.y = canvas.height;
+        if (this.pos.y > canvas.height + PLAYER_OOB_TELEPORT_BORDER_MARGIN_WHEN_OUT) {
+            this.pos.y = 0 - PLAYER_OOB_TELEPORT_BORDER_MARGIN_WHEN_IN;
+        } else if (this.pos.y < 0 + PLAYER_OOB_TELEPORT_BORDER_MARGIN_WHEN_OUT) {
+            this.pos.y = canvas.height + PLAYER_OOB_TELEPORT_BORDER_MARGIN_WHEN_IN;
         }
     }
-}
+}//end of Player
+
 
 class Laser {
     constructor(pos, dir){
         this.dir = dir;
         this.pos = pos;
         this.vec = {x:0,y:0};
-        this.magnitude = 10;
+        this.magnitude = LASER_DEFAULT_MAGNITUDE;
+        
+        this.convertPolarToXY();
     }
-    
     
     draw(){
         c.beginPath();
-        c.strokeStyle  = "white";
+        c.strokeStyle  = DEFAULT_COLOR;
         c.moveTo(this.pos.x,this.pos.y);
-        c.lineTo(this.pos.x + Math.cos(this.dir) * 30,this.pos.y+ Math.sin(this.dir) * 30);
+        c.lineTo(this.pos.x + Math.cos(this.dir) * LASER_LENGTH,this.pos.y+ Math.sin(this.dir) * LASER_LENGTH);
         c.stroke();
     }
+    
     convertPolarToXY() {
         this.vec.x = Math.cos(this.dir) * this.magnitude;
         this.vec.y = Math.sin(this.dir) * this.magnitude;
-        
     }
     
-    updatePos() { //modifie la position sur le canvas
-        this.pos.x = this.pos.x + this.vec.x; //position initial + le décalage indiqué en x et en y
+    updatePos() { 
+        this.pos.x = this.pos.x + this.vec.x;
         this.pos.y = this.pos.y + this.vec.y;
     }
-
-    outOfBound(){
+    
+    outOfBound(){ // check if the laser is outside the canvas and must be erased or not
         if(this.pos.x > canvas.width || this.pos.x < 0 || this.pos.y > canvas.height || this.pos.y < 0 ){  
             return true;
         }
         return false;
     }
+    
+}//end Laser
 
-}
+
+
 
 class Asteroid {
     constructor(size, pos, dir){
         this.size = size;
         this.pos = pos;
         this.dir = dir;
-        this.magnitude = 2/this.size;
+        this.magnitude = ASTEROID_DEFAULT_MAGNITUDE_FACTOR/this.size;
         this.vec = {x:0,y:0};
-        this.radius = 20;
+        this.radius = ASTEROID_DEFAULT_RADIUS;
+        
+        this.convertPolarToXY();
     }
+    
+    draw(){
+        c.beginPath();
+        c.arc(this.pos.x, this.pos.y , this.size * this.radius, 0, Math.PI * 2, false);
+        c.strokeStyle = DEFAULT_COLOR;
+        c.stroke();
+    }
+    
     convertPolarToXY() {
         this.vec.x = Math.cos(this.dir) * this.magnitude;
         this.vec.y = Math.sin(this.dir) * this.magnitude; 
     }
-
-    updatePos() { //modifie la position sur le canvas
-        this.pos.x = this.pos.x + this.vec.x; //position initial + le décalage indiqué en x et en y
+    
+    updatePos() {
+        this.pos.x = this.pos.x + this.vec.x; 
         this.pos.y = this.pos.y + this.vec.y;
     }
-    outOfBound(){
-        if(this.pos.x > canvas.width + 50 || this.pos.x < 0-50 || this.pos.y > canvas.height + 50 || this.pos.y < 0 - 50 ){  
+    
+    outOfBound(){ // check if the asteroid is outside the canvas, to be delete
+        if(this.pos.x > canvas.width + OUT_OF_BOUND_MAX || this.pos.x < -OUT_OF_BOUND_MAX || this.pos.y > canvas.height + OUT_OF_BOUND_MAX || this.pos.y <  - OUT_OF_BOUND_MAX ){  
             return true;
         }
         return false;
     }
-
-    draw(){
-        c.beginPath();
-        c.arc(this.pos.x, this.pos.y , this.size * this.radius, 0, Math.PI * 2, false);
-        c.strokeStyle = "white";
-        c.stroke();
-    }
-
-    laserified(laser){
+    
+    laserified(laser){ // check if a laser hit the asteroid.
         if (laser.pos.x < this.pos.x + this.size * this.radius && laser.pos.x > this.pos.x -  this.size * this.radius && laser.pos.y < this.pos.y + this.size * this.radius && laser.pos.y > this.pos.y -  this.size * this.radius){
             return true;
         }
         return false;
     }
-
-    splitAsteroid(){
-        return [new Asteroid(this.size-1,{...this.pos},this.dir + Math.PI / 3 ),new Asteroid(this.size-1,{...this.pos},this.dir - Math.PI / 3 )];
+    
+    splitAsteroid(){ // return 2 new smaller asteroids.
+        return [new Asteroid(this.size-1,{...this.pos},this.dir + Math.PI / ASTEROID_ANGLE_OF_CHILD_AFTER_SPLIT ),new Asteroid(this.size-1,{...this.pos},this.dir - Math.PI / ASTEROID_ANGLE_OF_CHILD_AFTER_SPLIT )];
     }
-
-    crash(player){
+    
+    crash(player){ // check if the player hit the asteroid
         if (player.pos.x < this.pos.x + this.size * this.radius && player.pos.x > this.pos.x -  this.size * this.radius && player.pos.y < this.pos.y + this.size * this.radius && player.pos.y > this.pos.y -  this.size * this.radius){
             return true;
         }
@@ -160,107 +184,110 @@ class Asteroid {
 }
 
 
-
-let lasers = [];
-let asteroids = [];
-let p1 = new Player();
+// Elements of the games displayed on the canvas
+let player = new Player();
+let lasers = []; 
+let asteroids = []; 
 
 
 function animate() {
-    c.clearRect(0, 0, canvas.width, canvas.height); // raffraichisment de la canvas
+    c.clearRect(-MARGIN_PIXEL_OF_CANVAS, -MARGIN_PIXEL_OF_CANVAS, canvas.width + MARGIN_PIXEL_OF_CANVAS, canvas.height + MARGIN_PIXEL_OF_CANVAS); // cleaning of the canvas between each frame
     
-    p1.updatePos();
-    p1.teleporte();
-    p1.draw();
-    lasers.forEach(laser => { //on update chaque corps
+    player.updatePos();
+    player.teleporte();
+    player.draw();
+    
+    lasers.forEach(laser => {
         laser.updatePos();
-        if(laser.outOfBound()){
-            //console.log("remove laser")
-            lasers.splice(lasers.findIndex(el => el === laser), 1);
+        if(laser.outOfBound()){ //check if the current laser must be remove
+            lasers.splice(lasers.findIndex(el => el === laser), 1); //remove element in array with same object properties
+        }else{
+            laser.draw();
         }
-        laser.draw();
     });
     
-    if(asteroids.length < 10){
-        let wall = Math.floor(Math.random() * (4));
-
-        let xx = 0;
+    //creation of new asteroids if needed
+    if(asteroids.length < NUMBER_OF_ASTEROID_AT_THE_SAME_TIME){
+        
+        let xx = 0; //default values
         let yy = 0;
         let dirr = 0;
-
-        switch (wall) {
-            case 0: //gauche
-                xx = -50;
-                yddddy = Math.random() * canvas.height;
-                dirr = Math.random() * (Math.PI) - Math.PI / 2;
-
-                break;
-            case 1: //haut
-                xx = Math.random() * canvas.width;
-                yy =  -50;
-                dirr = Math.random() * (Math.PI);
-                break;
-            case 2: //droite
-                xx = canvas.width + 50;
-                yy = Math.random() * canvas.height;
-                dirr = Math.random() * (Math.PI) + Math.PI/2;
-                break;
-            case 3: //bas
-                xx = Math.random() * canvas.width;
-                yy = canvas.height + 50;
-                dirr = Math.random() * (Math.PI) - Math.PI;
-                break;
+        
+        switch (Math.floor(Math.random() * (NUMBER_OF_EDGE_ON_A_SCREEN))) { //select between 4 possibility. One for each edge of the screen
+            case 0: //left
+            xx = -ASTEROID_STARTING_MARGIN;
+            yy = Math.random() * canvas.height;
+            dirr = Math.random() * (Math.PI) - Math.PI / 2;
+            break;
+            case 1: //top
+            xx = Math.random() * canvas.width;
+            yy =  -ASTEROID_STARTING_MARGIN;
+            dirr = Math.random() * (Math.PI);
+            break;
+            case 2: //right
+            xx = canvas.width + ASTEROID_STARTING_MARGIN;
+            yy = Math.random() * canvas.height;
+            dirr = Math.random() * (Math.PI) + Math.PI/2;
+            break;
+            case 3: //bottom
+            xx = Math.random() * canvas.width;
+            yy = canvas.height + ASTEROID_STARTING_MARGIN;
+            dirr = Math.random() * (Math.PI) - Math.PI;
+            break;
             
             default:
-                break;
+            console.log("ERROR : must be only 4 edges on the screen");
+            break;
         }
-
-    let asteroid = new Asteroid(Math.floor(Math.random() * (4 - 1) + 1), {x:xx, y:yy }, dirr);
-    asteroid.convertPolarToXY();
-    asteroids.push(asteroid);
+        
+        let asteroid = new Asteroid(Math.floor(Math.random() * (NUMBER_OF_EDGE_ON_A_SCREEN - 1) + 1), {x:xx, y:yy }, dirr);
+        asteroids.push(asteroid);
     };
-
-    continu = true;
+    
     asteroids.forEach(asteroid => {
+        if (player){
+            if (asteroid.crash(player)){ //player hit asteroid
+                gameOver();
+            }  
+        }
+        
+        
         lasers.forEach(laser => {
-            if(asteroid.laserified(laser)){
-                console.log("boom");
+            if(asteroid.laserified(laser)){ // laser hit asteroid
+                
                 if(isScoreUpdatable){
                     score += Math.floor(10 / asteroid.size);
                 }
                 updateScore();
-                lasers.splice(lasers.findIndex(el => el === laser), 1);
-                let childs = asteroid.splitAsteroid();
+                
+                lasers.splice(lasers.findIndex(el => el === laser), 1); // a laser is removed after it hit an asteroid
+                
+                let childs = asteroid.splitAsteroid(); //the asteroid is split into two.
                 childs.forEach(child => {
                     if (child.size > 0){
-                        child.convertPolarToXY();
                         asteroids.push(child);
                     }
                 })
-
-                asteroids.splice(asteroids.findIndex(el => el === asteroid), 1); //supression du parent
-                continu = false;
+                
+                asteroids.splice(asteroids.findIndex(el => el === asteroid), 1); //delete of parent asteroid
+                return; //skip iteration to the next because the current/parent asteroid no longer exist
             }
         });
-        if (continu){
-            if(p1){
-                if (asteroid.crash(p1)){
-                    gameOver();
-                }else{
-                    asteroid.updatePos();
-                    if(asteroid.outOfBound()){
-                        asteroids.splice(asteroids.findIndex(el => el === asteroid), 1);
-                    }
-                    asteroid.draw();
-                }
-            }
+        
+        
+        asteroid.updatePos();
+        if(asteroid.outOfBound()){
+            asteroids.splice(asteroids.findIndex(el => el === asteroid), 1);
+        }else{
+            asteroid.draw();
         }
+        
     });
     
     
     setTimeout(function() {
         requestAnimationFrame(animate);
-    }, 0000);
+    }, DELAY_BETWEEN_FRAME_UPDATE);
 }
 animate();
 
@@ -271,29 +298,52 @@ function updateScore(){
 
 function gameOver(){
     document.getElementById("gameOver").innerText = "GAME OVER";
-    isScoreUpdatable =false;
+    document.getElementById("replay").innerText = "new game";
+    isScoreUpdatable = false;
 }
+document.getElementById("replay").addEventListener("click", () => {
+    location.reload();
+})
 
 
-//controls
+//controls with keyboard
 window.addEventListener('keydown', (event) => {
     const keyName = event.key;  
     if (keyName === 'z') {
-        p1.acceleration = {x: Math.cos(p1.direction) ,y:Math.sin(p1.direction)}
-        p1.update();
+        player.acceleration = {x: Math.cos(player.direction) ,y:Math.sin(player.direction)}
+        player.update();
     }
     if (keyName === 's') {
-        let laser = new Laser({...p1.pos},p1.direction);
-        laser.convertPolarToXY();
+        let laser = new Laser({...player.pos},player.direction);
         lasers.push(laser);
     }
     if (keyName === 'd') {
-        p1.direction += 0.1 * Math.PI;
+        player.direction += SPACESHIP_ROTATION_ANGLE_FACTOR * Math.PI;
     }
     if (keyName === 'q') {
-        p1.direction -= 0.1 *Math.PI;
+        player.direction -= SPACESHIP_ROTATION_ANGLE_FACTOR *Math.PI;
     }
 });
 
+// controls with mouse
+window.onwheel = (event) => {
+    if (event.deltaY > 0){
+        player.direction += SPACESHIP_ROTATION_ANGLE_FACTOR * 2*Math.PI;
+    }else{
+        player.direction -= SPACESHIP_ROTATION_ANGLE_FACTOR *2* Math.PI;
+    }
+}
 
+window.addEventListener('contextmenu', function(event) {
+    event.preventDefault();
+    let laser = new Laser({...player.pos},player.direction);
+        lasers.push(laser);
+    return false;
+}, false);
 
+window.addEventListener('click', function(event) {
+    event.preventDefault();
+    player.acceleration = {x: Math.cos(player.direction) ,y:Math.sin(player.direction)}
+    player.update();
+    return false;
+}, false);

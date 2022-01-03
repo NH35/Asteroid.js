@@ -21,3 +21,11 @@ h1 {
     top : 40%;
     left: 30%;
 }
+
+#replay {
+    color: white;
+    position: absolute;
+    font-size: 60px;
+    top : 50%;
+    left: 30%;
+}
